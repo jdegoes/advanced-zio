@@ -1,7 +1,18 @@
-package advancedzio
+/**
+  * 
+  */
+package advancedzio.streams
 
 import zio._
+import zio.test._ 
+import zio.test.TestAspect._
+import zio.stream._
 
-object streams {
-  
+object StreamBasics extends DefaultRunnableSpec {
+  def spec = 
+    suite("StreamBasics") {
+      test("") {
+        assertTrue(false)
+      }
+    }
 }

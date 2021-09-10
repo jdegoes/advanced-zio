@@ -1,3 +1,14 @@
+/**
+  * ZIO's runtime system is responsible for executing effects on fibers.
+  * It is one of the darkest parts of ZIO, which users seldom need to see, 
+  * and which some users never even know exists. However, understanding 
+  * the runtime system, and being able to tweak it, is the key to 
+  * unlocking more advanced ZIO integrations and customizing ZIO for the 
+  * needs of well-established applications.
+  * 
+  * In this section, you will explore the runtime system and how to configure
+  * ZIO to meet the specialized needs that more complex applications possess.
+  */
 package zio.advancedzio.config
 
 import zio._

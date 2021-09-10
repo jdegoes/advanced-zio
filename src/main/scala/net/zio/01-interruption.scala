@@ -109,3 +109,48 @@ object InterruptibilityRegions extends DefaultRunnableSpec {
     }
   }
 }
+
+/**
+  * ZIO has resource-safe interruption, sometimes referred to as 
+  * "back-pressured" interruption. Interruption operators do not return 
+  * until whatever they are interrupting has been successfully interrupted.
+  * This behavior minimizes the chance of leaking resources (including fibers),
+  * but occassionally it is important to understand the implications of this 
+  * behavior and how to modify the default behavior.
+  */
+object Backpressuring extends DefaultRunnableSpec {
+  def spec = 
+    suite("Backpressuring") {
+      /**
+        * EXERCISE
+        * 
+        * This test looks like it should complete quickly. Discover what's 
+        * happening and change the condition until the test passes.
+        */
+      test("zipPar") {
+        Live.live(for {
+          start <- Clock.instant
+          latch <- Promise.make[Nothing, Unit]
+          left = ZIO.uninterruptible(latch.succeed(()) *> UIO(Thread.sleep(10000)))
+          right = latch.await *> ZIO.fail("Uh oh!")
+          value <- left.zipPar(right).timeout(100.millis)
+          end   <- Clock.instant
+          delta = end.getEpochSecond() - start.getEpochSecond()
+        } yield assertTrue(delta <= 1))
+      } @@ ignore + 
+      /**
+        * EXERCISE
+        * 
+        * Find the appropriate place to add the `disconnect` operator to ensure
+        * that even if an effect refuses to be interrupted in a timely fashion,
+        * the fiber can be detatched and not delay interruption.
+        */
+      test("disconnect") {        
+        for {
+          ref <- Ref.make(true)
+          _   <- Live.live(((UIO(Thread.sleep(5000)) *> ref.set(false)).uninterruptible).timeout(10.millis))          
+          v   <- ref.get 
+        } yield assertTrue(v)
+      } @@ ignore
+    }
+}
