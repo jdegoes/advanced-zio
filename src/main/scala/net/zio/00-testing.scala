@@ -14,6 +14,8 @@ package advancedzio.testing
 
 import zio._
 import zio.test._ 
+import zio.test.TestAspect._ 
+import zio.test.environment._
 
 object SimplestSpec extends DefaultRunnableSpec {
   /**
@@ -195,4 +197,52 @@ object TestFixtures extends DefaultRunnableSpec {
       } yield assertTrue(value == 1)
     }
   }
+}
+
+
+/**
+  * By default, ZIO tests use test versions of all the standard services 
+  * baked into ZIO, including Random, Clock, System, and Console.
+  * These allow you to programmatically control the services, such as 
+  * adjusting time, setting up fake environment variables, or inspecting
+  * console output or providing console input.
+  */
+object TestServices extends DefaultRunnableSpec {
+  def spec = 
+    suite("TestServices") {
+      /**
+        * EXERCISE 
+        * 
+        * Using `TestClock.adjust`, ensure this test passes without timing out.
+        */
+      test("TestClock") {
+        for {
+          fiber <- Clock.sleep(1.second).as(42).fork 
+          value <- fiber.join 
+        } yield assertTrue(value == 42)
+      } @@ ignore + 
+      /**
+        * EXERCISE
+        * 
+        * Using `TestSystem.setEnv`, set an environment variable to make the
+        * test pass.
+        */
+      test("TestSystem") {
+        for {
+          name <- System.env("name").some 
+        } yield assertTrue(name == "Sherlock Holmes")
+      } @@ ignore +
+      /**
+       * EXERCISE 
+       * 
+       * Using `TestConsole.feedLines`, feed a name into the console such that 
+       * the following test passes.
+       */
+      test("TestConsole") {
+        for {
+          _    <- Console.printLine("What is your name?")
+          name <- Console.readLine 
+        } yield assertTrue(name == "Sherlock Holmes")
+      } @@ ignore
+    }
 }
