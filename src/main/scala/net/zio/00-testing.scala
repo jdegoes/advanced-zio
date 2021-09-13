@@ -30,7 +30,7 @@ object SimplestSpec extends DefaultRunnableSpec {
   /**
    * EXERCISE
    *
-   * Using sbt or your IDE, run `SpecBasics` by using its `main` function (not the test runner).
+   * Using sbt or your IDE, run `SimplestSpec` by using its `main` function (not the test runner).
    */
   def spec = suite("SimplestSpec")()
 }
