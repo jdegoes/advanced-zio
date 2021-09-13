@@ -2,6 +2,4 @@ package advancedzio
 
 import zio._
 
-object sinks {
-  
-}
+object sinks {}
