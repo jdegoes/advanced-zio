@@ -96,36 +96,85 @@ object QueueBasics extends DefaultRunnableSpec {
 object StmBasics extends DefaultRunnableSpec {
   def spec =
     suite("StmBasics") {
-      test("permits") {
+      test("latch") {
 
         /**
          * EXERCISE
          *
-         * Implement `acquire` and `release` in a fashion the test passes.
+         * Implement a simple concurrent latch.
          */
-        final case class Permits(ref: TRef[Int]) {
-          def acquire(howMany: Int): UIO[Unit] = ???
-
-          def release(howMany: Int): UIO[Unit] = ???
+        final case class Latch(ref: TRef[Boolean]) {
+          def await: UIO[Any]   = UIO.unit
+          def trigger: UIO[Any] = UIO.unit
         }
 
-        def makePermits(max: Int): UIO[Permits] = TRef.make(max).map(Permits(_)).commit
+        def makeLatch: UIO[Latch] = TRef.make(false).map(Latch(_)).commit
 
         for {
-          counter <- Ref.make(0)
-          permits <- makePermits(100)
-          _ <- ZIO.foreachPar(1 to 1000)(
-                _ => Random.nextIntBetween(1, 2).flatMap(n => permits.acquire(n) *> permits.release(n))
-              )
-          latch   <- Promise.make[Nothing, Unit]
-          fiber   <- (latch.succeed(()) *> permits.acquire(101) *> counter.set(1)).forkDaemon
-          _       <- latch.await
-          _       <- Live.live(ZIO.sleep(1.second))
-          _       <- fiber.interrupt
-          count   <- counter.get
-          permits <- permits.ref.get.commit
-        } yield assertTrue(count == 0 && permits == 100)
-      }
+          latch  <- makeLatch
+          waiter <- latch.await.fork
+          _      <- Live.live(Clock.sleep(10.millis))
+          first  <- waiter.poll
+          _      <- latch.trigger
+          _      <- Live.live(Clock.sleep(10.millis))
+          second <- waiter.poll
+        } yield assertTrue(first.isEmpty && second.isDefined)
+      } @@ ignore +
+        test("countdown latch") {
+
+          /**
+           * EXERCISE
+           *
+           * Implement a simple concurrent latch.
+           */
+          final case class CountdownLatch(ref: TRef[Int]) {
+            def await: UIO[Any]     = UIO.unit
+            def countdown: UIO[Any] = UIO.unit
+          }
+
+          def makeLatch(n: Int): UIO[CountdownLatch] = TRef.make(n).map(ref => CountdownLatch(ref)).commit
+
+          for {
+            latch  <- makeLatch(10)
+            _      <- latch.countdown.repeatN(8)
+            waiter <- latch.await.fork
+            _      <- Live.live(Clock.sleep(10.millis))
+            first  <- waiter.poll
+            _      <- latch.countdown
+            _      <- Live.live(Clock.sleep(10.millis))
+            second <- waiter.poll
+          } yield assertTrue(first.isEmpty && second.isDefined)
+        } @@ ignore +
+        test("permits") {
+
+          /**
+           * EXERCISE
+           *
+           * Implement `acquire` and `release` in a fashion the test passes.
+           */
+          final case class Permits(ref: TRef[Int]) {
+            def acquire(howMany: Int): UIO[Unit] = ???
+
+            def release(howMany: Int): UIO[Unit] = ???
+          }
+
+          def makePermits(max: Int): UIO[Permits] = TRef.make(max).map(Permits(_)).commit
+
+          for {
+            counter <- Ref.make(0)
+            permits <- makePermits(100)
+            _ <- ZIO.foreachPar(1 to 1000)(
+                  _ => Random.nextIntBetween(1, 2).flatMap(n => permits.acquire(n) *> permits.release(n))
+                )
+            latch   <- Promise.make[Nothing, Unit]
+            fiber   <- (latch.succeed(()) *> permits.acquire(101) *> counter.set(1)).forkDaemon
+            _       <- latch.await
+            _       <- Live.live(ZIO.sleep(1.second))
+            _       <- fiber.interrupt
+            count   <- counter.get
+            permits <- permits.ref.get.commit
+          } yield assertTrue(count == 0 && permits == 100)
+        } @@ ignore
     }
 }
 

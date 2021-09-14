@@ -116,7 +116,7 @@ object BasicAssertionsZIO extends DefaultRunnableSpec {
        * EXERCISE
        *
        * Using `assertTrue`, assert that incrementing a zero-valued ref by one
-       * results in 2.
+       * results in 1.
        */
       for {
         ref <- Ref.make(0)
@@ -240,7 +240,7 @@ object TestFixtures extends DefaultRunnableSpec {
       for {
         value <- UIO(beforeRef.get)
       } yield assertTrue(value > 0)
-    } +
+    } @@ ignore +
       /**
        * EXERCISE
        *
@@ -251,7 +251,7 @@ object TestFixtures extends DefaultRunnableSpec {
         for {
           _ <- Console.printLine("after")
         } yield assertTrue(true)
-      } +
+      } @@ ignore +
       /**
        * EXERCISE
        *
@@ -262,7 +262,7 @@ object TestFixtures extends DefaultRunnableSpec {
         for {
           value <- UIO(aroundRef.get)
         } yield assertTrue(value == 1)
-      }
+      } @@ ignore
   }
 }
 
@@ -429,6 +429,9 @@ object CustomLayers extends DefaultRunnableSpec {
          * Finally, to make the test pass, you will have to create test
          * data matches your test expectations.
          */
+        // for {
+        //   user <- UserRepo.getUserById("sherlock@holmes.com").some
+        // } yield assertTrue(user.age == 42)
         assertTrue(false)
       } @@ ignore +
         /**

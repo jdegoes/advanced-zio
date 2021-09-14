@@ -24,6 +24,15 @@ import zio.test.TestAspect._
 import zio.test.environment.Live
 import scala.annotation.tailrec
 
+/**
+ * GUARANTEES
+ *
+ * ZIO can interrupt executing effects at any point in time, even in the
+ * middle of a method. In order to write correct code in the presence of
+ * interruption, ZIO provides a variety of operators that can be used to
+ * guarantee that something happens, i.e. to disable interruption for
+ * some region of code.
+ */
 object InterruptGuarantees extends DefaultRunnableSpec {
   def spec = suite("InterruptGuarantees") {
     test("ensuring") {
@@ -42,7 +51,7 @@ object InterruptGuarantees extends DefaultRunnableSpec {
         _       <- fiber.interrupt
         v       <- ref.get
       } yield assertTrue(v == 0)
-    } +
+    } @@ ignore +
       test("onExit") {
 
         /**
@@ -59,7 +68,7 @@ object InterruptGuarantees extends DefaultRunnableSpec {
           _       <- fiber.interrupt
           exit    <- promise.await
         } yield assertTrue(false)
-      } +
+      } @@ ignore +
       test("acquireRelease") {
 
         /**
@@ -73,7 +82,7 @@ object InterruptGuarantees extends DefaultRunnableSpec {
           fiber <- (latch.succeed(()) *> ZIO.never).acquireRelease(ZIO.unit)(ZIO.succeed(42)).forkDaemon
           value <- latch.await *> Live.live(fiber.join.disconnect.timeout(1.second))
         } yield assertTrue(value == Some(42))
-      }
+      } @@ ignore
   }
 }
 
@@ -94,7 +103,7 @@ object InterruptibilityRegions extends DefaultRunnableSpec {
         _     <- latch.await *> fiber.interrupt
         value <- ref.get
       } yield assertTrue(value == 1)
-    } +
+    } @@ ignore +
       test("interruptible") {
 
         /**
@@ -112,7 +121,7 @@ object InterruptibilityRegions extends DefaultRunnableSpec {
           _     <- Live.live(latch.await *> fiber.interrupt.disconnect.timeout(1.second))
           value <- ref.get
         } yield assertTrue(value == 1)
-      }
+      } @@ ignore
   }
 }
 
@@ -150,7 +159,7 @@ object Backpressuring extends DefaultRunnableSpec {
          *
          * Find the appropriate place to add the `disconnect` operator to ensure
          * that even if an effect refuses to be interrupted in a timely fashion,
-         * the fiber can be detatched and not delay interruption.
+         * the fiber can be detatched and will not delay interruption.
          */
         test("disconnect") {
           for {
@@ -159,5 +168,160 @@ object Backpressuring extends DefaultRunnableSpec {
             v   <- ref.get
           } yield assertTrue(v)
         } @@ ignore
+    }
+}
+
+/**
+ * ZIO's multitude of operators that protect against interruption are not
+ * necessarily intrinsic: they can be derived from operators that modify
+ * interruptibility status and `foldCauseZIO` (or equivalent).
+ */
+object BasicDerived extends DefaultRunnableSpec {
+  def spec =
+    suite("BasicDerived") {
+
+      /**
+       * EXERCISE
+       *
+       * Using the operators you have learned about so far, reinvent a safe
+       * version of `ensuring` in the method `withFinalizer`.
+       */
+      test("ensuring") {
+        def withFinalizer[R, E, A](zio: ZIO[R, E, A])(finalizer: UIO[Any]): ZIO[R, E, A] =
+          zio <* finalizer
+
+        for {
+          latch   <- Promise.make[Nothing, Unit]
+          promise <- Promise.make[Nothing, Unit]
+          ref     <- Ref.make(false)
+          fiber   <- withFinalizer(latch.succeed(()) *> promise.await)(ref.set(true)).forkDaemon
+          _       <- latch.await
+          _       <- fiber.interrupt
+          v       <- ref.get
+        } yield assertTrue(v)
+      } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Using the operators you have learned about so far, reinvent a safe
+         * version of `acquireReleaseWith` in the method `acquireReleaseWith`.
+         */
+        test("acquireRelease") {
+          def acquireReleaseWith[R, E, A, B](
+            acquire: ZIO[R, E, A]
+          )(release: A => UIO[Any])(use: A => ZIO[R, E, B]): ZIO[R, E, B] =
+            acquire.flatMap(a => release(a) *> use(a))
+
+          for {
+            latch   <- Promise.make[Nothing, Unit]
+            promise <- Promise.make[Nothing, Unit]
+            ref     <- Ref.make(false)
+            fiber <- acquireReleaseWith(latch.succeed(()) *> Live.live(ZIO.sleep(10.millis)))(_ => ref.set(true))(
+                      _ => promise.await
+                    ).forkDaemon
+            _ <- latch.await
+            _ <- fiber.interrupt
+            v <- ref.get
+          } yield assertTrue(v)
+        }
+    }
+}
+
+/**
+ * Using just `ZIO.uninterruptible` and `ZIO.interruptible`, it is too easy to
+ * create code that is interruptible (when it should not be interruptible), or
+ * code that is uninterruptible (when it should be interruptible).
+ */
+object UninterruptibleMask extends DefaultRunnableSpec {
+  def spec =
+    suite("UninterruptibleMask") {
+
+      /**
+       * EXERCISE
+       *
+       * Identify the problem in this code and fix it with
+       * `ZIO.uninterruptibleMask`, which restores the parent region
+       * status rather than clobbering the child region.
+       */
+      test("overly interruptible") {
+        def doWork[A](queue: Queue[A], worker: A => UIO[Any]) =
+          ZIO.uninterruptible {
+            queue.take.flatMap(a => ZIO.interruptible(worker(a)))
+          }
+
+        def worker(database: Ref[Chunk[Int]]): Int => UIO[Any] = {
+          def fib(n: Int): UIO[Int] =
+            UIO.suspendSucceed {
+              if (n <= 1) UIO(n)
+              else fib(n - 1).zipWith(fib(n - 2))(_ + _)
+            }
+
+          (i: Int) => fib(i).flatMap(num => database.update(_ :+ num))
+        }
+
+        for {
+          queue    <- Queue.bounded[Int](100)
+          database <- Ref.make[Chunk[Int]](Chunk.empty)
+          _        <- ZIO.foreach(0 to 1000000)(queue.offer(_)).fork
+          fiber    <- ZIO.uninterruptible(doWork(queue, worker(database)).repeatN(4)).fork
+          _        <- fiber.interrupt
+          data     <- database.get
+        } yield assertTrue(data.length == 5)
+      } @@ ignore
+    }
+}
+
+/**
+ * In this section, you will learn how to implement derived operators
+ * that are correct using `ZIO.uninterruptibleMask`.
+ */
+object AdvancedDerived extends DefaultRunnableSpec {
+  def spec =
+    suite("AdvancedDerived") {
+
+      /**
+       * EXERCISE
+       *
+       * Using `uninterruptibleMask`, implement a correct version of
+       * `ensuring`.
+       */
+      test("ensuring") {
+        def withFinalizer[R, E, A](zio: ZIO[R, E, A])(finalizer: UIO[Any]): ZIO[R, E, A] =
+          zio <* finalizer
+
+        for {
+          latch   <- Promise.make[Nothing, Unit]
+          promise <- Promise.make[Nothing, Unit]
+          ref     <- Ref.make(false)
+          fiber   <- withFinalizer(latch.succeed(()) *> promise.await)(ref.set(true)).forkDaemon
+          _       <- latch.await
+          _       <- fiber.interrupt
+          v       <- ref.get
+        } yield assertTrue(v)
+      } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Using `uninterruptibleMask`, implement a correct version of
+         * `acquireReleaseWith`.
+         */
+        test("acquireRelease") {
+          def acquireReleaseWith[R, E, A, B](
+            acquire: ZIO[R, E, A]
+          )(release: A => UIO[Any])(use: A => ZIO[R, E, B]): ZIO[R, E, B] =
+            acquire.flatMap(a => release(a) *> use(a))
+
+          for {
+            latch   <- Promise.make[Nothing, Unit]
+            promise <- Promise.make[Nothing, Unit]
+            ref     <- Ref.make(false)
+            fiber <- acquireReleaseWith(latch.succeed(()) *> Live.live(ZIO.sleep(10.millis)))(_ => ref.set(true))(
+                      _ => promise.await
+                    ).forkDaemon
+            _ <- latch.await
+            _ <- fiber.interrupt
+            v <- ref.get
+          } yield assertTrue(v)
+        }
     }
 }
