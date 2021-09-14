@@ -70,6 +70,11 @@ object InterruptGuarantees extends DefaultRunnableSpec {
         } yield assertTrue(false)
       } @@ ignore +
       test("acquireRelease") {
+        import java.net.Socket
+
+        def acquireSocket: UIO[Socket]              = ZIO.never
+        def releaseSocket(socket: Socket): UIO[Any] = ZIO.attemptBlockingIO(socket.close()).orDie
+        def useSocket(socket: Socket): UIO[Int]     = ZIO.attemptBlockingIO(socket.getInputStream().read()).orDie
 
         /**
          * EXERCISE
@@ -79,10 +84,10 @@ object InterruptGuarantees extends DefaultRunnableSpec {
          */
         for {
           latch <- Promise.make[Nothing, Unit]
-          fiber <- (latch.succeed(()) *> ZIO.never).acquireRelease(ZIO.unit)(ZIO.succeed(42)).forkDaemon
+          fiber <- (latch.succeed(()) *> acquireSocket).acquireReleaseWith(releaseSocket(_))(useSocket(_)).forkDaemon
           value <- latch.await *> Live.live(fiber.join.disconnect.timeout(1.second))
         } yield assertTrue(value == Some(42))
-      } @@ ignore
+      }
   }
 }
 
@@ -116,8 +121,7 @@ object InterruptibilityRegions extends DefaultRunnableSpec {
 
           ref   <- Ref.make(0)
           latch <- Promise.make[Nothing, Unit]
-          fiber <- (latch
-                    .succeed(()) *> ZIO.never).ensuring(ref.update(_ + 1)).acquireRelease(ZIO.unit)(ZIO.unit).forkDaemon
+          fiber <- ZIO.uninterruptible(latch.succeed(()) *> ZIO.never).ensuring(ref.update(_ + 1)).forkDaemon
           _     <- Live.live(latch.await *> fiber.interrupt.disconnect.timeout(1.second))
           value <- ref.get
         } yield assertTrue(value == 1)
@@ -147,12 +151,12 @@ object Backpressuring extends DefaultRunnableSpec {
         Live.live(for {
           start <- Clock.instant
           latch <- Promise.make[Nothing, Unit]
-          left  = ZIO.uninterruptible(latch.succeed(()) *> UIO(Thread.sleep(10000)))
+          left  = latch.succeed(()).ensuring(ZIO.sleep(1.seconds))
           right = latch.await *> ZIO.fail("Uh oh!")
-          value <- left.zipPar(right).timeout(100.millis)
+          _     <- left.zipPar(right).ignore
           end   <- Clock.instant
           delta = end.getEpochSecond() - start.getEpochSecond()
-        } yield assertTrue(delta <= 1))
+        } yield assertTrue(delta < 1))
       } @@ ignore +
         /**
          * EXERCISE
@@ -162,12 +166,12 @@ object Backpressuring extends DefaultRunnableSpec {
          * the fiber can be detatched and will not delay interruption.
          */
         test("disconnect") {
-          for {
+          Live.live(for {
             ref <- Ref.make(true)
-            _   <- Live.live(((UIO(Thread.sleep(5000)) *> ref.set(false)).uninterruptible).timeout(10.millis))
+            _   <- (ZIO.sleep(5.seconds) *> ref.set(false)).uninterruptible.timeout(10.millis)
             v   <- ref.get
-          } yield assertTrue(v)
-        } @@ ignore
+          } yield assertTrue(v))
+        }
     }
 }
 
