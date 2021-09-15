@@ -98,11 +98,11 @@ object QueueBasics extends DefaultRunnableSpec {
           } yield assertTrue(value == 5050)
         } @@ ignore +
         /**
-          * EXERCISE
-          * 
-          * Shutdown the queue, which will cause its sole producer to be 
-          * interrupted, resulting in the test succeeding.
-          */
+         * EXERCISE
+         *
+         * Shutdown the queue, which will cause its sole producer to be
+         * interrupted, resulting in the test succeeding.
+         */
         test("shutdown") {
           for {
             done   <- Ref.make(false)

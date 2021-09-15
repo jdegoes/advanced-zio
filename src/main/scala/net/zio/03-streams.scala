@@ -492,7 +492,70 @@ object TemporalStreams extends DefaultRunnableSpec {
 
 object ChunkedStreams extends DefaultRunnableSpec {
   def spec =
-    suite("ChunkedStreams")()
+    suite("ChunkedStreams") {
+
+      /**
+       * EXERCISE
+       *
+       * Use `.foreachChunk` in order to iterate through all the chunks which
+       * are backing the ZStream.
+       */
+      test("foreachChunk") {
+        val stream = ZStream.fromIterable(1 to 100)
+
+        for {
+          chunkCount <- Ref.make(0)
+          chunks     <- stream.foreach(_ => chunkCount.update(_ + 1))
+          v          <- chunkCount.get
+        } yield assertTrue(v == 1)
+      } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Map over the chunks backing the provided stream with `mapChunks`,
+         * reversing each of them.
+         */
+        test("mapChunks") {
+          val stream = ZStream.fromChunks(Chunk(1), Chunk(2), Chunk(3, 4), Chunk(5, 6, 7, 8, 9))
+
+          for {
+            values <- stream.runCollect
+          } yield assertTrue(values == Chunk(1, 2, 4, 3, 9, 8, 7, 6, 5))
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Provide a correct implementation of `chunked` that exposes the chunks
+         * underlying a stream.
+         */
+        test("chunked") {
+          val stream = ZStream.fromChunks(Chunk(1), Chunk(2), Chunk(3, 4), Chunk(5, 6, 7, 8, 9))
+
+          def chunked[R, E, A](stream: ZStream[R, E, A]): ZStream[R, E, Chunk[A]] =
+            stream.map(c => Chunk(c))
+
+          for {
+            chunks <- chunked(stream).runCollect
+          } yield assertTrue(chunks.length == 4)
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Implement a correct version of `unchunked` that hides the chunks
+         * into the stream.
+         */
+        test("unchunked") {
+          val stream = ZStream(Chunk(1), Chunk(2), Chunk(3, 4), Chunk(5, 6, 7, 8, 9))
+
+          def unchunked[R, E, A](stream: ZStream[R, E, Chunk[A]]): ZStream[R, E, A] =
+            stream.map(_.head)
+
+          for {
+            values1 <- unchunked(stream).runCollect
+            values2 <- stream.flattenChunks.runCollect
+          } yield assertTrue(values1 == values2)
+        } @@ ignore
+    }
 }
 
 /**
