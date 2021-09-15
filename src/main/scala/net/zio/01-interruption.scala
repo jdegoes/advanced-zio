@@ -276,15 +276,23 @@ object UninterruptibleMask extends DefaultRunnableSpec {
 }
 
 /**
- * In this section, you will learn how to implement derived operators
- * that are correct using `ZIO.uninterruptibleMask`.
+ * GRADUATION PROJECT
+ *
+ * To graduate from this section, you will choose and complete one of the
+ * following two problems:
+ *
+ * 1. Derive a correct implementation of `ensuring` in terms of more primitive
+ *    operators.
+ *
+ * 2. Derive a correct implementation of `acquireReleaseWith` in terms of more
+ *    primitive operators.
  */
-object AdvancedDerived extends DefaultRunnableSpec {
+object Graduation extends DefaultRunnableSpec {
   def spec =
-    suite("AdvancedDerived") {
+    suite("Graduation") {
 
       /**
-       * EXERCISE
+       * CHOICE 1
        *
        * Using `uninterruptibleMask`, implement a correct version of
        * `ensuring`.
@@ -304,7 +312,7 @@ object AdvancedDerived extends DefaultRunnableSpec {
         } yield assertTrue(v)
       } @@ ignore +
         /**
-         * EXERCISE
+         * CHOICE 2
          *
          * Using `uninterruptibleMask`, implement a correct version of
          * `acquireReleaseWith`.

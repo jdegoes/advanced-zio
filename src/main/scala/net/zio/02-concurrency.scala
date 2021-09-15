@@ -213,3 +213,20 @@ object HubBasics extends DefaultRunnableSpec {
       } @@ ignore
     }
 }
+
+/**
+ * GRADUATION PROJECT
+ *
+ * To graduate from this section, you will choose and complete one of the
+ * following two problems:
+ *
+ * 1. Implement a bulkhead pattern, which provides rate limiting to a group
+ *    of services to protect other services accessing a given resource.
+ *
+ * 2. Implement a CircuitBreaker, which triggers on too many failures, and
+ *    which (gradually?) resets after a certain amount of time.
+ */
+object Graduation extends DefaultRunnableSpec {
+  def spec =
+    suite("Graduation")()
+}

@@ -222,6 +222,101 @@ object SimpleOperators extends DefaultRunnableSpec {
     }
 }
 
+object RunningStreams extends DefaultRunnableSpec {
+  def spec =
+    suite("RunningStreams") {
+
+      /**
+       * EXERCISE
+       *
+       * Use `.runHead` to pull out the head element of an infinite stream.
+       */
+      test("runHead") {
+        val stream = ZStream("All work and no play makes Jack a dull boy").forever
+
+        for {
+          headOption <- ZIO(Option.empty[String])
+        } yield assertTrue(headOption == Some("All work and no play makes Jack a dull boy"))
+      } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `.runDrain` to run a stream by draining all of its elements and
+         * throwing them away (change the `.runHead`).
+         */
+        test("runDrain") {
+          val stream = ZStream.fromIterable(0 to 1000)
+
+          for {
+            drained   <- Ref.make(false)
+            _         <- (stream ++ ZStream.fromZIO(drained.set(true)).drain).runHead
+            isDrained <- drained.get
+          } yield assertTrue(isDrained)
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `.runCount` to drain the stream and count how many things were
+         * emitted by the stream (change the `.runHead`).
+         */
+        test("runCount") {
+          val stream = ZStream.fromIterable(0 to 100)
+
+          for {
+            count <- stream.runHead.some
+          } yield assertTrue(count == 101)
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `.run` with the provided "sink" to count the number of things
+         * that were emitted by the stream (change the `.runHead`).
+         */
+        test("run") {
+          val stream = ZStream.fromIterable(0 to 100)
+          val sink   = ZSink.count
+
+          for {
+            count <- stream.runHead.some
+          } yield assertTrue(count == 101)
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `.fold` to fold over the stream, summing all the elements.
+         */
+        test("fold") {
+          val stream = ZStream.fromIterable(0 to 100)
+
+          for {
+            sum <- stream.runHead.some
+          } yield assertTrue(sum == 5050)
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `.foldZIO` to fold over a stream of questions, asking responses,
+         * and aggregating them into a map.
+         */
+        test("foldZIO") {
+          val expected =
+            Map("What is your name?" -> "Sherlock Holmes", "What is your age?" -> "42")
+
+          val questions = ZStream.fromIterable(expected.keys)
+
+          for {
+            _ <- TestConsole.feedLines(expected.values.toVector: _*)
+            map <- questions.fold(Map.empty[String, String]) {
+                    case (map, question) =>
+                      val answer = question
+
+                      map + (question -> answer)
+                  }
+          } yield assertTrue(map == expected)
+        } @@ ignore
+    }
+}
+
 object AdvancedConstructors extends DefaultRunnableSpec {
   def spec =
     suite("AdvancedConstructors") {
@@ -310,7 +405,24 @@ object AdvancedOperators extends DefaultRunnableSpec {
           } yield
             assertTrue(values == Chunk("Sherlock Holmes", "42")) &&
               assertTrue(lines == Vector("What is your name?\n", "What is your age?\n"))
-        } @@ ignore
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `mapAccum` to keep track of word counts, emitting pairs of
+         * words and their current running counts. Hint: Use a `Map[String, Int]`
+         * as the state type for your `mapAccum`.
+         */
+        test("mapAccum") {
+          val stream = ZStream("blue", "red", "blue", "red")
+
+          def aggregate(stream: Stream[Nothing, String]): Stream[Nothing, (String, Int)] =
+            ???
+
+          for {
+            tuple <- aggregate(stream).runLast.some
+          } yield assertTrue(tuple == ("red", 2))
+        }
     }
 }
 
@@ -342,17 +454,63 @@ object BasicError extends DefaultRunnableSpec {
     }
 }
 
-object RunningStreams extends DefaultRunnableSpec {
-  def spec =
-    suite("RunningStreams")()
-}
-
 object TemporalStreams extends DefaultRunnableSpec {
   def spec =
-    suite("TemporalStreams")()
+    suite("TemporalStreams") {
+
+      /**
+       * EXERCISE
+       *
+       * Use `ZStream.fromSchedule` to convert a schedule to a stream.
+       */
+      test("fromSchedule") {
+        val schedule = Schedule.recurs(100)
+
+        for {
+          values <- ZStream().runCollect
+        } yield assertTrue(values.length == 100)
+      } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `ZStream.repeatZIOWithSchedule` to repeat the provided effect
+         * according to the provided schedule.
+         */
+        test("repeatZIOWithSchedule") {
+          val effect   = Console.printLine("All work and no play makes Jack a dull boy")
+          val schedule = Schedule.recurs(100)
+
+          val s = ZStream()
+
+          for {
+            _     <- ZStream().runDrain
+            lines <- TestConsole.output
+          } yield assertTrue(lines.length == 101)
+        } @@ ignore
+    }
 }
 
 object ChunkedStreams extends DefaultRunnableSpec {
   def spec =
     suite("ChunkedStreams")()
+}
+
+/**
+ * GRADUATION
+ *
+ * To graduate from this section, you will implement a command-line application
+ * that uses ZIO Streams to perform "word counting" on a provided file.
+ */
+object Graduation extends zio.App {
+  def wordCount(file: String): IO[IOException, Map[String, Int]] = ???
+
+  def run(args: List[String]): URIO[ZEnv, ExitCode] =
+    args match {
+      case Nil => Console.printLine("You need to specify a file to word count").!.as(ExitCode.failure)
+      case file :: _ =>
+        (for {
+          map <- wordCount(file)
+          _   <- Console.printLine(map.mkString("", "\n", ""))
+        } yield ()).exitCode
+    }
 }
