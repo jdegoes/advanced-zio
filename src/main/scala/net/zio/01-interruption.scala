@@ -214,7 +214,7 @@ object BasicDerived extends DefaultRunnableSpec {
           def acquireReleaseWith[R, E, A, B](
             acquire: ZIO[R, E, A]
           )(release: A => UIO[Any])(use: A => ZIO[R, E, B]): ZIO[R, E, B] =
-            acquire.flatMap(a => release(a) *> use(a))
+            acquire.flatMap(a => use(a) <* release(a))
 
           for {
             latch   <- Promise.make[Nothing, Unit]
