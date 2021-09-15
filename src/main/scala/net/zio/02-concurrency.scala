@@ -42,17 +42,30 @@ object QueueBasics extends DefaultRunnableSpec {
       /**
        * EXERCISE
        *
-       * Create a consumer of this queue that adds each value taken from the
-       * queue to the counter, so the unit test can pass.
+       * Using `.take` and `.offer`, create two fibers, one which places
+       * 12 inside the queue, and one which takes an element from the
+       * queue and stores it into the provided `ref`.
        */
-      test("consumer") {
+      test("offer/take") {
         for {
-          counter <- Ref.make(0)
-          queue   <- Queue.bounded[Int](100)
-          _       <- ZIO.foreach(1 to 100)(v => queue.offer(v)).forkDaemon
-          value   <- counter.get
-        } yield assertTrue(value == 5050)
+          ref <- Ref.make(0)
+          v   <- ref.get
+        } yield assertTrue(v == 12)
       } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Create a consumer of this queue that adds each value taken from the
+         * queue to the counter, so the unit test can pass.
+         */
+        test("consumer") {
+          for {
+            counter <- Ref.make(0)
+            queue   <- Queue.bounded[Int](100)
+            _       <- ZIO.foreach(1 to 100)(v => queue.offer(v)).forkDaemon
+            value   <- counter.get
+          } yield assertTrue(value == 5050)
+        } @@ ignore +
         /**
          * EXERCISE
          *
@@ -83,6 +96,23 @@ object QueueBasics extends DefaultRunnableSpec {
             _       <- queue.take.flatMap(v => counter.update(_ + v)).repeatN(99)
             value   <- counter.get
           } yield assertTrue(value == 5050)
+        } @@ ignore +
+        /**
+          * EXERCISE
+          * 
+          * Shutdown the queue, which will cause its sole producer to be 
+          * interrupted, resulting in the test succeeding.
+          */
+        test("shutdown") {
+          for {
+            done   <- Ref.make(false)
+            latch  <- Promise.make[Nothing, Unit]
+            queue  <- Queue.bounded[Int](100)
+            _      <- (latch.succeed(()) *> queue.offer(1).forever).ensuring(done.set(true)).fork
+            _      <- latch.await
+            _      <- queue.takeN(100)
+            isDone <- done.get.repeatWhile(_ == false).timeout(10.millis).some
+          } yield assertTrue(isDone)
         } @@ ignore
     }
 }
