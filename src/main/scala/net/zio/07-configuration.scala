@@ -12,9 +12,11 @@
 package zio.advancedzio.config
 
 import zio._
+import zio.internal.Platform
+
 import zio.test._
 import zio.test.TestAspect._
-import zio.internal.Platform
+
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.atomic.AtomicReference
 
