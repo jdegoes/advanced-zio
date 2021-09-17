@@ -1,3 +1,11 @@
+/**
+ * ZIO provides features specifically designed to improve your experience
+ * deploying, scaling, monitoring, and troubleshooting ZIO applications.
+ * These features include async stack traces, fiber dumps, logging hooks,
+ * and integrated metrics and monitoring.
+ *
+ * In this section, you get to explore the operational side of ZIO.
+ */
 package advancedzio.ops
 
 import zio._

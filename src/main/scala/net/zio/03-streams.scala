@@ -82,7 +82,8 @@ object SimpleConstructors extends DefaultRunnableSpec {
         /**
          * EXERCISE
          *
-         * Use the
+         * Use the `ZStream.fromZIO` constructor to convert the provided effect
+         * into a singleton stream.
          */
         test("fromZIO") {
           val effect = Console.readLine

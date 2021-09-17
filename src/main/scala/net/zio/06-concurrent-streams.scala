@@ -34,6 +34,36 @@ object ConcurrencyOps extends DefaultRunnableSpec {
         /**
          * EXERCISE
          *
+         * Use `.mapMPar` to apply the mapping in parallel.
+         */
+        test("mapPar") {
+          def fib(n: Int): Int =
+            if (n <= 1) n else fib(n - 1) + fib(n - 2)
+
+          val stream = ZStream.range(0, 10)
+
+          for {
+            fibs <- stream.map(fib(_)).runCollect
+          } yield assertTrue(fibs == Chunk(0, 1, 1, 2, 3, 5, 8, 13, 21, 34))
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `.flatMapPar` to apply the flatMap in parallel.
+         */
+        test("flatMapPar") {
+          def lookupAge(id: String) =
+            ZStream.fromZIO(ZIO.fromOption(Map("Sherlock" -> 42, "John" -> 43, "Mycroft" -> 48).get(id)))
+
+          val stream = ZStream("Sherlock", "John", "Mycroft")
+
+          for {
+            ages <- stream.flatMap(lookupAge(_)).runCollect
+          } yield assertTrue(ages == Chunk(42, 43, 48))
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
          * Find the right place to complete the promise that will interrupt the
          * provided infinite stream.
          */
@@ -78,6 +108,56 @@ object ConcurrencyOps extends DefaultRunnableSpec {
             ref <- Ref.make(0)
             v   <- ref.get
           } yield assertTrue(v == 100)
-        } @@ ignore
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `aggregateAsync` on a transducer created with
+         * `ZTransducer.foldUntil` that sums up every pair of elements.
+         */
+        test("aggregateAsync(foldUntil(...))") {
+          val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+          def transducer: ZTransducer[Any, Nothing, Int, Int] = ???
+
+          for {
+            values <- stream.aggregateAsync(transducer).runCollect
+          } yield assertTrue(values == Chunk(1, 5, 9, 13, 17))
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `aggregateAsync` on a transducer created with
+         * `ZTransducer.foldWeighted` to group elements into
+         * chunks of size 2.
+         */
+        test("aggregateAsync(foldWeighted(...))") {
+          val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+          def transducer: ZTransducer[Any, Nothing, Int, Chunk[Int]] =
+            ???
+
+          for {
+            values <- stream.aggregateAsync(transducer).runCollect
+          } yield
+            assertTrue(values == Chunk(Chunk(0, 1), Chunk(2, 3), Chunk(4, 5), Chunk(6, 7), Chunk(8, 9), Chunk(10)))
+        } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Use `aggregateAsyncWithin` to group elements into chunks of up to
+         * size 10, or 5 milliseconds, whichever comes sooner.
+         */
+        test("aggregateAsyncWithin") {
+          val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10).schedule(Schedule.spaced(1.millis))
+
+          def transducer = ZTransducer.collectAllN[Int](10)
+
+          Live.live {
+            for {
+              values <- stream.aggregateAsyncWithin(transducer, Schedule.fixed(5.millis)).runCollect
+            } yield assertTrue(values == Chunk(Chunk(0, 1, 2, 3), Chunk(4, 5, 6, 7), Chunk(8, 9, 10)))
+          }
+        } @@ flaky @@ ignore
     }
 }

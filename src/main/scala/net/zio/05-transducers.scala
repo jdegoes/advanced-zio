@@ -114,3 +114,31 @@ object Operators extends DefaultRunnableSpec {
       } @@ ignore
     }
 }
+
+/**
+ * GRADUATION
+ *
+ * To graduate from this section, you will implement a transducer that rechunks
+ * a stream.
+ */
+object Graduation extends DefaultRunnableSpec {
+  def rechunkWith[A](f: (Chunk[A], Chunk[A]) => (Chunk[A], Chunk[A])): ZTransducer[Any, Nothing, A, A] =
+    ???
+
+  def rechunk[A](n: Int): ZTransducer[Any, Nothing, A, A] =
+    rechunkWith {
+      case (leftover, next) =>
+        (leftover ++ next).splitAt(n + 1)
+    }
+
+  def spec =
+    suite("Graduation") {
+      test("rechunking") {
+        val stream = ZStream.fromChunks(Chunk(1), Chunk(2, 3, 4), Chunk(5), Chunk(6, 7, 8))
+
+        for {
+          values <- (stream >>> rechunk[Int](2)).mapChunks(c => Chunk(c)).runCollect
+        } yield assertTrue(values == Chunk(Chunk(1, 2), Chunk(3, 4), Chunk(5, 6)))
+      } @@ ignore
+    }
+}

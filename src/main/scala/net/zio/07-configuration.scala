@@ -223,7 +223,7 @@ object RuntimeSpec extends DefaultRunnableSpec {
        * record timings, restart failed effects, or perform other advanced
        * functionality.
        *
-       * Note that currently, all supervisors must live inside the ZIO package.
+       * NOTE: currently, all supervisors must live inside the ZIO package.
        *
        * In this exercise, install a supervisor into the runtime configuration
        * that allows you to restart all failed fibers.
