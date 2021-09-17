@@ -12,24 +12,68 @@ import zio._
 
 import zio.test._
 import zio.test.TestAspect._
+import zio.test.environment._
+
+object AsyncTraces extends DefaultRunnableSpec {
+  def spec =
+    suite("AsyncTraces") {
+
+      /**
+       * EXERCISE
+       *
+       * Pull out the `traces` associated with the following sandboxed
+       * failure, and verify there is at least one trace element.
+       */
+      test("traces") {
+        def async =
+          for {
+            _ <- ZIO.sleep(1.millis)
+            _ <- ZIO.fail("Uh oh!")
+          } yield ()
+
+        def traces(cause: Cause[String]): List[ZTrace] = ???
+
+        Live.live(for {
+          cause <- async.sandbox.flip
+          ts    = traces(cause)
+        } yield assertTrue(ts(0).executionTrace.length > 0))
+      } @@ ignore
+    }
+}
 
 object FiberDumps extends DefaultRunnableSpec {
   def spec =
     suite("FiberDumps") {
+
+      /**
+       * EXERCISE
+       *
+       * Compute and print out all fiber dumps of the fibers running in this test.
+       */
       test("dump") {
         val example =
           for {
-            child1 <- ZIO.foreach(1 to 100000)(_ => ZIO.unit).forkDaemon
-            child2 <- ZIO.foreach(1 to 100000)(_ => ZIO.unit).forkDaemon
+            promise <- Promise.make[Nothing, Unit]
+            blocked <- promise.await.forkDaemon
+            child1  <- ZIO.foreach(1 to 100000)(_ => ZIO.unit).forkDaemon
           } yield ()
 
         for {
           supervisor <- Supervisor.track(false)
           _          <- example.supervised(supervisor)
           children   <- supervisor.value
-          dumps      <- ZIO.foreach(children)(child => child.dump)
-          _          <- ZIO.foreach(dumps)(dump => dump.prettyPrintM.flatMap(Console.printLine(_)))
+          _          <- ZIO.foreach(children)(child => ZIO.unit)
         } yield assertTrue(children.length == 2)
-      }
+      } @@ flaky
     }
+}
+
+object Logging extends DefaultRunnableSpec {
+  def spec =
+    suite("Logging")()
+}
+
+object Metrics extends DefaultRunnableSpec {
+  def spec =
+    suite("Metrics")()
 }

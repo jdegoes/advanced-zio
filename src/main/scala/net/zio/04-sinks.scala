@@ -27,7 +27,7 @@ object Constructors extends DefaultRunnableSpec {
        *
        * Replace the call to `.runSum` by a call to `run` using `ZSink.count`.
        */
-      test("ZSink.count") {
+      test("count") {
         val stream = ZStream(1, 2, 3, 4)
 
         for {
@@ -152,5 +152,33 @@ object Operators extends DefaultRunnableSpec {
             chunks <- stream.run(sink)
           } yield assertTrue(chunks == (Chunk(1, 2), Chunk(3, 4, 5), Chunk(6)))
         } @@ ignore
+    }
+}
+
+/**
+ * GRADUATION
+ *
+ * To graduate from this section, you will implement a sink that writes results
+ * to a persistet queue.
+ */
+object Graduation extends DefaultRunnableSpec {
+  trait PersistentQueue[-A] {
+    def append(a: A): Task[Unit]
+
+    def shutdown: Task[Unit]
+  }
+
+  trait PersistentQueueFactory {
+    def create[A](topic: String): Task[PersistentQueue[A]]
+  }
+
+  def persistentQueue[A](topic: String): ZSink[Has[PersistentQueueFactory], Throwable, A, Nothing, Unit] =
+    ???
+
+  def spec =
+    suite("Graduation") {
+      test("persistentQueue") {
+        assertTrue(false)
+      } @@ ignore
     }
 }

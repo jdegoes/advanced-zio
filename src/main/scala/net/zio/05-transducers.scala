@@ -14,6 +14,41 @@ import zio.test.TestAspect._
 import zio.test.environment._
 import java.nio.charset.StandardCharsets
 
+object Introduction extends DefaultRunnableSpec {
+  def spec =
+    suite("Introduction") {
+
+      /**
+       * EXERCISE
+       *
+       * Use `>>>` to append a transducer to a stream, transforming the
+       * elements of the stream by the transducer.
+       */
+      test(">>>") {
+        val stream = ZStream.range(1, 10)
+        val trans  = ZTransducer.collectAllN[Int](2)
+
+        for {
+          chunks <- stream.runCollect
+        } yield assertTrue(chunks.length == 5)
+      } @@ ignore +
+        /**
+         * EXERCISE
+         *
+         * Using `.transduce`, transform the elements of this stream by
+         * the provided transducer.
+         */
+        test("transduce") {
+          val stream = ZStream.range(1, 100)
+          val trans  = ZTransducer.collectAllN[Int](10)
+
+          for {
+            values <- stream.runCollect
+          } yield assertTrue(values.length == 10)
+        } @@ ignore
+    }
+}
+
 object Constructors extends DefaultRunnableSpec {
   def spec =
     suite("Constructors") {
