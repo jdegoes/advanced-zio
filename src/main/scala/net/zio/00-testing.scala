@@ -30,7 +30,7 @@ object SimplestSpec extends DefaultRunnableSpec {
   /**
    * EXERCISE
    *
-   * Using sbt or your IDE, run `SpecBasics` by using its `main` function (not the test runner).
+   * Using sbt or your IDE, run `SimplestSpec` by using its `main` function (not the test runner).
    */
   def spec = suite("SimplestSpec")()
 }
@@ -137,7 +137,7 @@ object BasicAssertionsZIO extends DefaultRunnableSpec {
         for {
           ref  <- Ref.make(0)
           rand <- Random.nextIntBetween(1, 4)
-          v    <- ref.updateAndGet(_ + 1).repeatN(rand * 2)
+          v    <- ref.updateAndGet(_ + 1).repeatN(rand * 2 - 1)
         } yield assertTrue(false)
       }
   }
