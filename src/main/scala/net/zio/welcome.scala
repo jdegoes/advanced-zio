@@ -12,7 +12,8 @@ object welcome {
   //
   // Daily Schedule (ET):
   //
-  //    START : 11:00 AM
-  //    LUNCH : 12:45 PM
-  //    END   :  3:00 PM
+  //    START  :  7:00 AM
+  //    BREAK  : 10:00 AM
+  //    RESUME : 11:00 AM
+  //    END    :  2:00 PM
 }
