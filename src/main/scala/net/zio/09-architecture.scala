@@ -64,7 +64,7 @@ package db {
   final case class DbConfig(jdbcUrl: String)
 
   trait Database {
-    def query(query: String): ZManaged[Any, java.io.IOException, java.sql.ResultSet]
+    def query(query: String): ZIO[Scope, java.io.IOException, java.sql.ResultSet]
   }
 
   /**

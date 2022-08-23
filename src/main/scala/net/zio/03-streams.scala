@@ -16,7 +16,6 @@ import zio.stream._
 
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment._
 
 import java.io.IOException
 import java.nio.file.Path
@@ -29,7 +28,7 @@ import java.nio.file.FileSystems
  *
  * In this section, you'll explore a few of the common constructors.
  */
-object SimpleConstructors extends DefaultRunnableSpec {
+object SimpleConstructors extends ZIOSpecDefault {
   def spec =
     suite("SimpleConstructors") {
 
@@ -105,17 +104,17 @@ object SimpleConstructors extends DefaultRunnableSpec {
          */
         test("fromFile") {
           lazy val path   = FileSystems.getDefault().getPath("build.sbt")
-          lazy val decode = ZTransducer.utf8Decode >>> ZTransducer.splitLines
+          lazy val decode = ZPipeline.utf8Decode >>> ZPipeline.splitLines
 
           for {
-            _     <- ZStream[Byte]().transduce(decode).foreach(Console.printLine(_))
+            _     <- (ZStream[Byte]() >>> decode).foreach(Console.printLine(_))
             lines <- TestConsole.output
           } yield assertTrue(lines.exists(_.contains("zio-streams")))
         } @@ ignore
     }
 }
 
-object SimpleOperators extends DefaultRunnableSpec {
+object SimpleOperators extends ZIOSpecDefault {
   def spec =
     suite("SimpleOperators") {
 
@@ -213,8 +212,8 @@ object SimpleOperators extends DefaultRunnableSpec {
          * Use `++` to concatenate the two streams together.
          */
         test("++") {
-          val stream1 = Stream(1, 2, 3)
-          val stream2 = Stream(4, 5, 6)
+          val stream1 = ZStream(1, 2, 3)
+          val stream2 = ZStream(4, 5, 6)
 
           for {
             values <- (stream1).runCollect
@@ -223,7 +222,7 @@ object SimpleOperators extends DefaultRunnableSpec {
     }
 }
 
-object RunningStreams extends DefaultRunnableSpec {
+object RunningStreams extends ZIOSpecDefault {
   def spec =
     suite("RunningStreams") {
 
@@ -236,7 +235,7 @@ object RunningStreams extends DefaultRunnableSpec {
         val stream = ZStream("All work and no play makes Jack a dull boy").forever
 
         for {
-          headOption <- ZIO(Option.empty[String])
+          headOption <- ZIO.succeed(Option.empty[String])
         } yield assertTrue(headOption == Some("All work and no play makes Jack a dull boy"))
       } @@ ignore +
         /**
@@ -307,18 +306,18 @@ object RunningStreams extends DefaultRunnableSpec {
 
           for {
             _ <- TestConsole.feedLines(expected.values.toVector: _*)
-            map <- questions.fold(Map.empty[String, String]) {
+            map <- questions.run(ZSink.foldLeft(Map.empty[String, String]) {
                     case (map, question) =>
                       val answer = question
 
                       map + (question -> answer)
-                  }
+                  })
           } yield assertTrue(map == expected)
         } @@ ignore
     }
 }
 
-object AdvancedConstructors extends DefaultRunnableSpec {
+object AdvancedConstructors extends ZIOSpecDefault {
   def spec =
     suite("AdvancedConstructors") {
 
@@ -372,7 +371,7 @@ object AdvancedConstructors extends DefaultRunnableSpec {
     }
 }
 
-object AdvancedOperators extends DefaultRunnableSpec {
+object AdvancedOperators extends ZIOSpecDefault {
   def spec =
     suite("AdvancedOperators") {
 
@@ -383,7 +382,7 @@ object AdvancedOperators extends DefaultRunnableSpec {
        * is replicated 3 times.
        */
       test("flatMap") {
-        val stream = Stream(1, 2, 3)
+        val stream = ZStream(1, 2, 3)
 
         for {
           values <- stream.runCollect
@@ -427,7 +426,7 @@ object AdvancedOperators extends DefaultRunnableSpec {
     }
 }
 
-object BasicError extends DefaultRunnableSpec {
+object BasicError extends ZIOSpecDefault {
   def spec =
     suite("BasicError") {
 
@@ -455,7 +454,7 @@ object BasicError extends DefaultRunnableSpec {
     }
 }
 
-object TemporalStreams extends DefaultRunnableSpec {
+object TemporalStreams extends ZIOSpecDefault {
   def spec =
     suite("TemporalStreams") {
 
@@ -491,7 +490,7 @@ object TemporalStreams extends DefaultRunnableSpec {
     }
 }
 
-object ChunkedStreams extends DefaultRunnableSpec {
+object ChunkedStreams extends ZIOSpecDefault {
   def spec =
     suite("ChunkedStreams") {
 
@@ -565,13 +564,13 @@ object ChunkedStreams extends DefaultRunnableSpec {
  * To graduate from this section, you will implement a command-line application
  * that uses ZIO Streams to perform "word counting" on a provided file.
  */
-object Graduation extends zio.App {
+object Graduation extends zio.ZIOAppDefault {
   def wordCount(file: String): IO[IOException, Map[String, Int]] = ???
 
-  def run(args: List[String]): URIO[ZEnv, ExitCode] =
-    args match {
-      case Nil => Console.printLine("You need to specify a file to word count").!.as(ExitCode.failure)
-      case file :: _ =>
+  def run =
+    getArgs.map(_.headOption).flatMap {
+      case None => Console.printLine("You need to specify a file to word count").!.as(ExitCode.failure)
+      case Some(file) =>
         (for {
           map <- wordCount(file)
           _   <- Console.printLine(map.mkString("", "\n", ""))

@@ -16,9 +16,8 @@ import zio.stream._
 
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment._
 
-object Constructors extends DefaultRunnableSpec {
+object Constructors extends ZIOSpecDefault {
   def spec =
     suite("Constructors") {
 
@@ -44,7 +43,7 @@ object Constructors extends DefaultRunnableSpec {
           val stream = ZStream(1, 2, 3, 4)
 
           for {
-            two <- stream.run(ZSink.take(2))
+            two <- stream.runCollect
           } yield assertTrue(two == Chunk(1, 2))
         } @@ ignore +
         /**
@@ -80,7 +79,7 @@ object Constructors extends DefaultRunnableSpec {
     }
 }
 
-object Operators extends DefaultRunnableSpec {
+object Operators extends ZIOSpecDefault {
   def spec =
     suite("Operators") {
 
@@ -161,7 +160,7 @@ object Operators extends DefaultRunnableSpec {
  * To graduate from this section, you will implement a sink that writes results
  * to a persistet queue.
  */
-object Graduation extends DefaultRunnableSpec {
+object Graduation extends ZIOSpecDefault {
   trait PersistentQueue[-A] {
     def append(a: A): Task[Unit]
 
@@ -172,7 +171,7 @@ object Graduation extends DefaultRunnableSpec {
     def create[A](topic: String): Task[PersistentQueue[A]]
   }
 
-  def persistentQueue[A](topic: String): ZSink[Has[PersistentQueueFactory], Throwable, A, Nothing, Unit] =
+  def persistentQueue[A](topic: String): ZSink[PersistentQueueFactory, Throwable, A, Nothing, Unit] =
     ???
 
   def spec =

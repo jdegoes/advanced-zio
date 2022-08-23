@@ -21,7 +21,6 @@ package advancedzio.interruption
 import zio._
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment.Live
 import scala.annotation.tailrec
 
 /**
@@ -33,7 +32,7 @@ import scala.annotation.tailrec
  * guarantee that something happens, i.e. to disable interruption for
  * some region of code.
  */
-object InterruptGuarantees extends DefaultRunnableSpec {
+object InterruptGuarantees extends ZIOSpecDefault {
   def spec = suite("InterruptGuarantees") {
     test("ensuring") {
 
@@ -84,14 +83,14 @@ object InterruptGuarantees extends DefaultRunnableSpec {
          */
         for {
           latch <- Promise.make[Nothing, Unit]
-          fiber <- (latch.succeed(()) *> acquireSocket).acquireReleaseWith(releaseSocket(_))(useSocket(_)).forkDaemon
+          fiber <- ZIO.acquireReleaseWith(latch.succeed(()) *> acquireSocket)(releaseSocket(_))(useSocket(_)).forkDaemon
           value <- latch.await *> Live.live(fiber.join.disconnect.timeout(1.second))
         } yield assertTrue(value == Some(42))
       }
   }
 }
 
-object InterruptibilityRegions extends DefaultRunnableSpec {
+object InterruptibilityRegions extends ZIOSpecDefault {
   def spec = suite("InterruptibilityRegions") {
     test("uninterruptible") {
 
@@ -137,7 +136,7 @@ object InterruptibilityRegions extends DefaultRunnableSpec {
  * but occassionally it is important to understand the implications of this
  * behavior and how to modify the default behavior.
  */
-object Backpressuring extends DefaultRunnableSpec {
+object Backpressuring extends ZIOSpecDefault {
   def spec =
     suite("Backpressuring") {
 
@@ -180,7 +179,7 @@ object Backpressuring extends DefaultRunnableSpec {
  * necessarily intrinsic: they can be derived from operators that modify
  * interruptibility status and `foldCauseZIO` (or equivalent).
  */
-object BasicDerived extends DefaultRunnableSpec {
+object BasicDerived extends ZIOSpecDefault {
   def spec =
     suite("BasicDerived") {
 
@@ -236,7 +235,7 @@ object BasicDerived extends DefaultRunnableSpec {
  * create code that is interruptible (when it should not be interruptible), or
  * code that is uninterruptible (when it should be interruptible).
  */
-object UninterruptibleMask extends DefaultRunnableSpec {
+object UninterruptibleMask extends ZIOSpecDefault {
   def spec =
     suite("UninterruptibleMask") {
 
@@ -255,8 +254,8 @@ object UninterruptibleMask extends DefaultRunnableSpec {
 
         def worker(database: Ref[Chunk[Int]]): Int => UIO[Any] = {
           def fib(n: Int): UIO[Int] =
-            UIO.suspendSucceed {
-              if (n <= 1) UIO(n)
+            ZIO.suspendSucceed {
+              if (n <= 1) ZIO.succeed(n)
               else fib(n - 1).zipWith(fib(n - 2))(_ + _)
             }
 
@@ -287,7 +286,7 @@ object UninterruptibleMask extends DefaultRunnableSpec {
  * 2. Derive a correct implementation of `acquireReleaseWith` in terms of more
  *    primitive operators.
  */
-object Graduation extends DefaultRunnableSpec {
+object Graduation extends ZIOSpecDefault {
   def spec =
     suite("Graduation") {
 

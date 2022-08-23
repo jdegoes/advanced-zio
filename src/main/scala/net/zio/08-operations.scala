@@ -12,9 +12,8 @@ import zio._
 
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment._
 
-object AsyncTraces extends DefaultRunnableSpec {
+object AsyncTraces extends ZIOSpecDefault {
   def spec =
     suite("AsyncTraces") {
 
@@ -31,17 +30,17 @@ object AsyncTraces extends DefaultRunnableSpec {
             _ <- ZIO.fail("Uh oh!")
           } yield ()
 
-        def traces(cause: Cause[String]): List[ZTrace] = ???
+        def traces(cause: Cause[String]): List[StackTrace] = ???
 
         Live.live(for {
           cause <- async.sandbox.flip
           ts    = traces(cause)
-        } yield assertTrue(ts(0).executionTrace.length > 0))
+        } yield assertTrue(ts(0).stackTrace.length > 0))
       } @@ ignore
     }
 }
 
-object FiberDumps extends DefaultRunnableSpec {
+object FiberDumps extends ZIOSpecDefault {
   def spec =
     suite("FiberDumps") {
 
@@ -68,12 +67,12 @@ object FiberDumps extends DefaultRunnableSpec {
     }
 }
 
-object Logging extends DefaultRunnableSpec {
+object Logging extends ZIOSpecDefault {
   def spec =
     suite("Logging")()
 }
 
-object Metrics extends DefaultRunnableSpec {
+object Metrics extends ZIOSpecDefault {
   def spec =
     suite("Metrics")()
 }

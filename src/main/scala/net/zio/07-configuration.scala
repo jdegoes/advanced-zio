@@ -20,7 +20,9 @@ import zio.test.TestAspect._
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.atomic.AtomicReference
 
-object RuntimeSpec extends DefaultRunnableSpec {
+object RuntimeSpec extends ZIOSpecDefault {
+  implicit def unsafe: Unsafe = null.asInstanceOf[zio.Unsafe]
+
   def spec =
     suite("RuntimeSpec") {
 
@@ -46,39 +48,12 @@ object RuntimeSpec extends DefaultRunnableSpec {
           for {
             integer <- ZIO.environment[Int]
             _       <- ZIO.debug(integer)
-          } yield integer * 2
+          } yield integer.get[Int] * 2
 
-        val runtime = Runtime(19, Platform.default)
+        val runtime = Runtime(ZEnvironment(19), FiberRefs.empty, RuntimeFlags.default)
 
-        assertTrue(runtime.unsafeRun(effect) == 42)
+        assertTrue(runtime.unsafe.run(effect) == Exit.succeed(42))
       } @@ ignore +
-        /**
-         * EXERCISE
-         *
-         * By default, ZIO provides async execution and stack tracing. In some
-         * applications, these may not be needed, and turning them off can
-         * reduce heap usage and slightly improve performance.
-         *
-         * Tweak the runtime config so that tracing is disabled.
-         */
-        test("Tracing.disabled") {
-          import zio.internal.Tracing
-
-          val effect =
-            for {
-              _     <- ZIO.debug("Before trace!")
-              _     <- ZIO.debug("Before before trace!")
-              trace <- ZIO.trace
-              _     <- ZIO.debug("After trace!")
-              _     <- ZIO.debug("After after trace!")
-            } yield trace
-
-          val runtime = Runtime((), Platform.default)
-
-          val trace = runtime.unsafeRun(effect)
-
-          assertTrue(trace.executionTrace.isEmpty && trace.stackTrace.isEmpty)
-        } @@ ignore +
         /**
          * EXERCISE
          *
@@ -102,9 +77,9 @@ object RuntimeSpec extends DefaultRunnableSpec {
             throw t
           }
 
-          val runtime = Runtime((), Platform.default)
+          val runtime = Runtime(ZEnvironment.empty, FiberRefs.empty, RuntimeFlags.default)
 
-          try runtime.unsafeRun(ZIO.succeed(throw fatalError))
+          try runtime.unsafe.run(ZIO.succeed(throw fatalError))
           catch { case _: Throwable => () }
 
           assertTrue(fatalRef.get.get == fatalError)
@@ -123,9 +98,9 @@ object RuntimeSpec extends DefaultRunnableSpec {
          * unit test will pass.
          */
         test("enableCurrentFiber") {
-          val runtime = Runtime((), Platform.default)
+          val runtime = Runtime(ZEnvironment.empty, FiberRefs.empty, RuntimeFlags.default)
 
-          val option = runtime.unsafeRun(UIO(Fiber.unsafeCurrentFiber()))
+          val option = runtime.unsafe.run(ZIO.attempt(Fiber.currentFiber()(unsafe))).getOrThrowFiberFailure()
 
           assertTrue(option.isDefined)
         } @@ ignore +
@@ -152,7 +127,7 @@ object RuntimeSpec extends DefaultRunnableSpec {
 
           val ranOnEC = new java.util.concurrent.atomic.AtomicBoolean(false)
 
-          val executor = zio.internal.Executor.fromExecutionContext(1024) {
+          val executor = zio.Executor.fromExecutionContext {
             new ExecutionContext {
               final def execute(runnable: Runnable): Unit = {
                 ranOnEC.set(true)
@@ -164,9 +139,9 @@ object RuntimeSpec extends DefaultRunnableSpec {
             }
           }
 
-          val runtime = Runtime((), Platform.default)
+          val runtime = Runtime(ZEnvironment.empty, FiberRefs.empty, RuntimeFlags.default)
 
-          runtime.unsafeRun(ZIO.yieldNow *> ZIO.unit)
+          runtime.unsafe.run(ZIO.yieldNow *> ZIO.unit)
 
           assertTrue(ranOnEC.get == true)
         } @@ ignore +
@@ -205,10 +180,9 @@ object RuntimeSpec extends DefaultRunnableSpec {
             throw t
           }
 
-          val runtime = Runtime((), Platform.default.copy(reportFatal = captureFatal(_)))
-
-          try runtime.unsafeRun(ZIO.succeed(throw ioException))
-          catch { case _: Throwable => () }
+          Runtime.default.unsafe.run {
+            ZIO.succeed(throw ioException) // HERE
+          }
 
           assertTrue(fatalRef.get.get == ioException)
         }
@@ -239,26 +213,25 @@ object RuntimeSpec extends DefaultRunnableSpec {
                 else ZIO.succeed("Time to live!") *> ZIO.succeed(succeeded.set(true))
           } yield count
 
-        lazy val runtime = Runtime((), Platform.default.copy(reportFailure = _ => ()))
-
         lazy val supervisor: Supervisor[Unit] = new Supervisor[Unit] {
           @volatile var lastEffect = ZIO.unit
 
-          def value: UIO[Unit] = ZIO.unit
+          def value(implicit trace: zio.Trace): UIO[Unit] = ZIO.unit
 
-          def unsafeOnStart[R, E, A](
-            environment: R,
+          def onStart[R, E, A](
+            environment: ZEnvironment[R],
             effect: ZIO[R, E, A],
             parent: Option[Fiber.Runtime[Any, Any]],
             fiber: Fiber.Runtime[E, A]
-          ): Unit = lastEffect = effect.asInstanceOf[UIO[Unit]]
+          )(implicit unsafe: zio.Unsafe): Unit = lastEffect = effect.asInstanceOf[UIO[Unit]]
 
-          def unsafeOnEnd[R, E, A](value: Exit[E, A], fiber: Fiber.Runtime[E, A]): Unit =
-            value.fold(_ => runtime.unsafeRun(lastEffect), _ => ())
+          def onEnd[R, E, A](value: Exit[E, A], fiber: Fiber.Runtime[E, A])(implicit unsafe: zio.Unsafe): Unit =
+            value.fold(_ => Runtime.default.unsafe.run(lastEffect), _ => ())
         }
 
-        try runtime.unsafeRun(effect)
-        catch { case _: Throwable => () }
+        try Runtime.default.unsafe.run {
+          effect // HERE
+        } catch { case _: Throwable => () }
 
         assertTrue(succeeded.get)
       } @@ ignore

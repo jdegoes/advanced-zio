@@ -12,9 +12,8 @@ import zio.stream._
 
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment._
 
-object ConcurrencyOps extends DefaultRunnableSpec {
+object ConcurrencyOps extends ZIOSpecDefault {
   def spec =
     suite("ConcurrentOps") {
 
@@ -34,7 +33,7 @@ object ConcurrencyOps extends DefaultRunnableSpec {
         /**
          * EXERCISE
          *
-         * Use `.mapMPar` to apply the mapping in parallel.
+         * Use `.mapPar` to apply the mapping in parallel.
          */
         test("mapPar") {
           def fib(n: Int): Int =
@@ -112,33 +111,33 @@ object ConcurrencyOps extends DefaultRunnableSpec {
         /**
          * EXERCISE
          *
-         * Use `aggregateAsync` on a transducer created with
-         * `ZTransducer.foldUntil` that sums up every pair of elements.
+         * Use `aggregateAsync` on a sink created with
+         * `ZSink.foldUntil` that sums up every pair of elements.
          */
         test("aggregateAsync(foldUntil(...))") {
           val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
-          def transducer: ZTransducer[Any, Nothing, Int, Int] = ???
+          def sink: ZSink[Any, Nothing, Int, Nothing, Int] = ???
 
           for {
-            values <- stream.aggregateAsync(transducer).runCollect
+            values <- stream.aggregateAsync(sink).runCollect
           } yield assertTrue(values == Chunk(1, 5, 9, 13, 17))
         } @@ ignore +
         /**
          * EXERCISE
          *
-         * Use `aggregateAsync` on a transducer created with
-         * `ZTransducer.foldWeighted` to group elements into
+         * Use `aggregateAsync` on a sink created with
+         * `ZSink.foldWeighted` to group elements into
          * chunks of size 2.
          */
         test("aggregateAsync(foldWeighted(...))") {
           val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
-          def transducer: ZTransducer[Any, Nothing, Int, Chunk[Int]] =
+          def sink: ZSink[Any, Nothing, Int, Nothing, Chunk[Int]] =
             ???
 
           for {
-            values <- stream.aggregateAsync(transducer).runCollect
+            values <- stream.aggregateAsync(sink).runCollect
           } yield
             assertTrue(values == Chunk(Chunk(0, 1), Chunk(2, 3), Chunk(4, 5), Chunk(6, 7), Chunk(8, 9), Chunk(10)))
         } @@ ignore +
@@ -151,11 +150,11 @@ object ConcurrencyOps extends DefaultRunnableSpec {
         test("aggregateAsyncWithin") {
           val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10).schedule(Schedule.spaced(1.millis))
 
-          def transducer = ZTransducer.collectAllN[Int](10)
+          def sink: ZSink[Any, Nothing, Int, Int, Chunk[Int]] = ZSink.collectAllN(10)
 
           Live.live {
             for {
-              values <- stream.aggregateAsyncWithin(transducer, Schedule.fixed(5.millis)).runCollect
+              values <- stream.aggregateAsyncWithin(sink, Schedule.fixed(5.millis)).runCollect
             } yield assertTrue(values == Chunk(Chunk(0, 1, 2, 3), Chunk(4, 5, 6, 7), Chunk(8, 9, 10)))
           }
         } @@ flaky @@ ignore

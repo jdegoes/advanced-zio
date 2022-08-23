@@ -1,16 +1,11 @@
-val ZIOVersion = "2.0.0-M2"
+val ZIOVersion = "2.0.1"
 
 lazy val root = project
   .in(file("."))
   .settings(
     name := "advanced-zio",
     organization := "net.degoes",
-    scalaVersion := "2.12.11",
-    initialCommands in Compile in console :=
-      """|import zio._
-         |import zio.Console._
-         |implicit class RunSyntax[E, A](io: ZIO[ZEnv, E, A]){ def unsafeRun: A = Runtime.default.unsafeRun(io) }
-    """.stripMargin
+    scalaVersion := "2.13.8"
   )
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
@@ -25,9 +20,7 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio-streams"  % ZIOVersion,
   "dev.zio" %% "zio-test"     % ZIOVersion,
   "dev.zio" %% "zio-test"     % ZIOVersion % "test",
-  "dev.zio" %% "zio-test-sbt" % ZIOVersion % "test",
-  // URL parsing
-  "io.lemonlabs" %% "scala-uri" % "1.4.1"
+  "dev.zio" %% "zio-test-sbt" % ZIOVersion % "test"
 )
 
 testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))

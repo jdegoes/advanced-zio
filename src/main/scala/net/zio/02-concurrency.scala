@@ -23,7 +23,6 @@ import zio._
 import zio.stm._
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment.Live
 
 /**
  * ZIO queues are high-performance, asynchronous, lock-free structures backed
@@ -35,7 +34,7 @@ import zio.test.environment.Live
  * Queues work well for multiple producers and multiple consumers, where
  * consumers divide work between themselves.
  */
-object QueueBasics extends DefaultRunnableSpec {
+object QueueBasics extends ZIOSpecDefault {
   def spec =
     suite("QueueBasics") {
 
@@ -123,7 +122,7 @@ object QueueBasics extends DefaultRunnableSpec {
  * are no alternatives in ZIO, or when you need to make coordinated
  * changes across many structures in a transactional way.
  */
-object StmBasics extends DefaultRunnableSpec {
+object StmBasics extends ZIOSpecDefault {
   def spec =
     suite("StmBasics") {
       test("latch") {
@@ -134,8 +133,8 @@ object StmBasics extends DefaultRunnableSpec {
          * Implement a simple concurrent latch.
          */
         final case class Latch(ref: TRef[Boolean]) {
-          def await: UIO[Any]   = UIO.unit
-          def trigger: UIO[Any] = UIO.unit
+          def await: UIO[Any]   = ZIO.unit
+          def trigger: UIO[Any] = ZIO.unit
         }
 
         def makeLatch: UIO[Latch] = TRef.make(false).map(Latch(_)).commit
@@ -158,8 +157,8 @@ object StmBasics extends DefaultRunnableSpec {
            * Implement a simple concurrent latch.
            */
           final case class CountdownLatch(ref: TRef[Int]) {
-            def await: UIO[Any]     = UIO.unit
-            def countdown: UIO[Any] = UIO.unit
+            def await: UIO[Any]     = ZIO.unit
+            def countdown: UIO[Any] = ZIO.unit
           }
 
           def makeLatch(n: Int): UIO[CountdownLatch] = TRef.make(n).map(ref => CountdownLatch(ref)).commit
@@ -214,7 +213,7 @@ object StmBasics extends DefaultRunnableSpec {
  * where multiple (potentially many) consumers need to access the same values
  * being published to the hub.
  */
-object HubBasics extends DefaultRunnableSpec {
+object HubBasics extends ZIOSpecDefault {
   def spec =
     suite("HubBasics") {
 
@@ -234,9 +233,9 @@ object HubBasics extends DefaultRunnableSpec {
           scount  <- Ref.make[Int](0)
           _       <- (latch.get.retryUntil(_ <= 0).commit *> ZIO.foreach(1 to 100)(hub.publish(_))).forkDaemon
           _ <- ZIO.foreachPar(1 to 100) { _ =>
-                hub.subscribe.use { queue =>
+                ZIO.scoped(hub.subscribe.flatMap { queue =>
                   latch.update(_ - 1).commit
-                }
+                })
               }
           value <- counter.get
         } yield assertTrue(value == 505000)
@@ -256,7 +255,7 @@ object HubBasics extends DefaultRunnableSpec {
  * 2. Implement a CircuitBreaker, which triggers on too many failures, and
  *    which (gradually?) resets after a certain amount of time.
  */
-object Graduation extends DefaultRunnableSpec {
+object Graduation extends ZIOSpecDefault {
   def spec =
     suite("Graduation")()
 }

@@ -15,7 +15,6 @@ package advancedzio.testing
 import zio._
 import zio.test._
 import zio.test.TestAspect._
-import zio.test.environment._
 
 /**
  * SPECS
@@ -25,12 +24,12 @@ import zio.test.environment._
  * SBT test runner or the IntelliJ IDEA ZIO plug-in, you can also run your tests
  * directly from SBT or your IDE.
  */
-object SimplestSpec extends DefaultRunnableSpec {
+object SimplestSpec extends ZIOSpecDefault {
 
   /**
    * EXERCISE
    *
-   * Using sbt or your IDE, run `SpecBasics` by using its `main` function (not the test runner).
+   * Using sbt or your IDE, run `SimplestSpec` by using its `main` function (not the test runner).
    */
   def spec = suite("SimplestSpec")()
 }
@@ -42,7 +41,7 @@ object SimplestSpec extends DefaultRunnableSpec {
  * powerful error messages and reporting. Assertions produce values,
  * which compose using a variety of operators.
  */
-object BasicAssertions extends DefaultRunnableSpec {
+object BasicAssertions extends ZIOSpecDefault {
   def spec = suite("BasicAssertions") {
     trait Building {
       def contents: String
@@ -108,7 +107,7 @@ object BasicAssertions extends DefaultRunnableSpec {
  * Most assertions in ZIO Test will be effectful, rather than pure. Using the
  * same syntax, ZIO lets you write effectful tests.
  */
-object BasicAssertionsZIO extends DefaultRunnableSpec {
+object BasicAssertionsZIO extends ZIOSpecDefault {
   def spec = suite("BasicAssertionsZIO") {
     test("incrementing a ref") {
 
@@ -154,7 +153,7 @@ object BasicAssertionsZIO extends DefaultRunnableSpec {
  * Test aspects can add features like retrying tests, ignoring tests, running
  * tests only on a certain platform, and so forth.
  */
-object BasicTestAspects extends DefaultRunnableSpec {
+object BasicTestAspects extends ZIOSpecDefault {
   import zio.test.TestAspect._
 
   def spec = suite("BasicTestAspects") {
@@ -222,11 +221,11 @@ object BasicTestAspects extends DefaultRunnableSpec {
  * used for "test fixtures", which allow developers to perform custom
  * setup / tear down operations required for running tests.
  */
-object TestFixtures extends DefaultRunnableSpec {
+object TestFixtures extends ZIOSpecDefault {
   val beforeRef = new java.util.concurrent.atomic.AtomicInteger(0)
   val aroundRef = new java.util.concurrent.atomic.AtomicInteger(0)
 
-  val incBeforeRef: UIO[Any] = UIO(beforeRef.incrementAndGet())
+  val incBeforeRef: UIO[Any] = ZIO.succeed(beforeRef.incrementAndGet())
 
   def spec = suite("TestFixtures") {
 
@@ -238,7 +237,7 @@ object TestFixtures extends DefaultRunnableSpec {
      */
     test("before") {
       for {
-        value <- UIO(beforeRef.get)
+        value <- ZIO.succeed(beforeRef.get)
       } yield assertTrue(value > 0)
     } @@ ignore +
       /**
@@ -260,7 +259,7 @@ object TestFixtures extends DefaultRunnableSpec {
        */
       test("around") {
         for {
-          value <- UIO(aroundRef.get)
+          value <- ZIO.succeed(aroundRef.get)
         } yield assertTrue(value == 1)
       } @@ ignore
   }
@@ -275,7 +274,7 @@ object TestFixtures extends DefaultRunnableSpec {
  * adjusting time, setting up fake environment variables, or inspecting
  * console output or providing console input.
  */
-object TestServices extends DefaultRunnableSpec {
+object TestServices extends ZIOSpecDefault {
   def spec =
     suite("TestServices") {
 
@@ -293,7 +292,7 @@ object TestServices extends DefaultRunnableSpec {
         /**
          * EXERCISE
          *
-         * Using `TestSystem.setEnv`, set an environment variable to make the
+         * Using `TestSystem.putEnv`, set an environment variable to make the
          * test pass.
          */
         test("TestSystem") {
@@ -352,7 +351,7 @@ object TestServices extends DefaultRunnableSpec {
  * Some ZIO Test aspects are designed for more advanced integration and system
  * tests.
  */
-object IntegrationSystem extends DefaultRunnableSpec {
+object IntegrationSystem extends ZIOSpecDefault {
 
   /**
    * EXERCISE
@@ -374,19 +373,19 @@ object IntegrationSystem extends DefaultRunnableSpec {
  * ZIO Test allows you to provide custom layers in a variety of ways
  * to your tests.
  */
-object CustomLayers extends DefaultRunnableSpec {
+object CustomLayers extends ZIOSpecDefault {
   final case class User(id: String, name: String, age: Int)
 
   trait UserRepo {
     def getUserById(id: String): Task[Option[User]]
     def updateUser(user: User): Task[Unit]
   }
-  object UserRepo extends Accessible[UserRepo] {
-    def getUserById(id: String): RIO[Has[UserRepo], Option[User]] =
-      UserRepo(_.getUserById(id))
+  object UserRepo {
+    def getUserById(id: String): RIO[UserRepo, Option[User]] =
+      ZIO.serviceWithZIO[UserRepo](_.getUserById(id))
 
-    def updateUser(user: User): RIO[Has[UserRepo], Unit] =
-      UserRepo(_.updateUser(user))
+    def updateUser(user: User): RIO[UserRepo, Unit] =
+      ZIO.serviceWithZIO[UserRepo](_.updateUser(user))
   }
 
   final case class TestUserRepo(ref: Ref[Map[String, User]]) extends UserRepo {
@@ -413,7 +412,7 @@ object CustomLayers extends DefaultRunnableSpec {
    *
    * Create a test user repo layer and populate it with some test data.
    */
-  lazy val testUserRepo: ULayer[Has[UserRepo]] = ???
+  lazy val testUserRepo: ULayer[UserRepo] = ???
 
   def spec =
     suite("CustomLayers") {
@@ -469,6 +468,6 @@ object CustomLayers extends DefaultRunnableSpec {
  *    create a layer for the test email service and use it in a test.
  *
  */
-object Graduation extends DefaultRunnableSpec {
+object Graduation extends ZIOSpecDefault {
   def spec = suite("Graduation")()
 }
