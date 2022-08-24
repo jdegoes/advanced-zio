@@ -136,7 +136,7 @@ object BasicAssertionsZIO extends ZIOSpecDefault {
         for {
           ref  <- Ref.make(0)
           rand <- Random.nextIntBetween(1, 4)
-          v    <- ref.updateAndGet(_ + 1).repeatN(rand * 2)
+          v    <- ref.updateAndGet(_ + 1).repeatN(rand * 2 - 1)
         } yield assertTrue(false)
       }
   }
