@@ -30,7 +30,7 @@ object Constructors extends ZIOSpecDefault {
         val stream = ZStream(1, 2, 3, 4)
 
         for {
-          size <- stream.runSum
+          size <- stream.run(ZSink.count)
         } yield assertTrue(size.toInt == 4)
       } @@ ignore +
         /**
@@ -43,7 +43,7 @@ object Constructors extends ZIOSpecDefault {
           val stream = ZStream(1, 2, 3, 4)
 
           for {
-            two <- stream.runCollect
+            two <- stream.run(ZSink.take(2))
           } yield assertTrue(two == Chunk(1, 2))
         } @@ ignore +
         /**
@@ -58,7 +58,7 @@ object Constructors extends ZIOSpecDefault {
 
           for {
             ref <- Ref.make(0)
-            _   <- stream.runDrain
+            _   <- stream.run(ZSink.foreach(v => ref.update(_ + v)))
             v   <- ref.get
           } yield assertTrue(v == 10)
         } @@ ignore +
@@ -73,7 +73,7 @@ object Constructors extends ZIOSpecDefault {
           val stream = ZStream(1, 2, 3, 4)
 
           for {
-            value <- stream.runSum
+            value <- stream.run(ZSink.foldLeft(1)(_ * _))
           } yield assertTrue(value == 24)
         } @@ ignore
     }
@@ -96,7 +96,7 @@ object Operators extends ZIOSpecDefault {
         val stream = ZStream(1, 2, 3, 4)
 
         for {
-          value <- stream.runCount
+          value <- stream.run(sink)
         } yield assertTrue(value == 4)
       } @@ ignore +
         /**
@@ -107,7 +107,7 @@ object Operators extends ZIOSpecDefault {
          */
         test("zipPar") {
           def zippedSink: ZSink[Any, Nothing, Int, Nothing, (Long, Int)] =
-            ???
+            ZSink.count.zipPar(ZSink.sum[Int])
 
           val stream = ZStream(1, 2, 3, 4)
 
@@ -123,7 +123,7 @@ object Operators extends ZIOSpecDefault {
          */
         test("zip") {
           def zippedSink: ZSink[Any, Nothing, Int, Int, (Chunk[Int], Chunk[Int])] =
-            ???
+            ZSink.take(3).zip(ZSink.collectAll[Int])
 
           val stream = ZStream(1, 2, 3, 4)
 
@@ -140,8 +140,8 @@ object Operators extends ZIOSpecDefault {
         test("flatMap") {
           val sink =
             for {
-              two       <- ZSink.collectAll[Int]
-              three     <- ZSink.collectAll[Int]
+              two       <- ZSink.take[Int](2)
+              three     <- ZSink.take[Int](3)
               remainder <- ZSink.collectAll[Int]
             } yield (two, three, remainder)
 
@@ -172,7 +172,13 @@ object Graduation extends ZIOSpecDefault {
   }
 
   def persistentQueue[A](topic: String): ZSink[PersistentQueueFactory, Throwable, A, Nothing, Unit] =
-    ???
+    (for {
+      queueFactory <- ZSink.service[PersistentQueueFactory]
+      queue        <- ZSink.fromZIO(queueFactory.create(topic))
+      _            <- ZSink.foreach(queue.append(_)).channel.ensuring(queue.shutdown.orDie).toSink[A, Nothing]
+    } yield ())
+
+  // Adding ensuring to ZSink
 
   def spec =
     suite("Graduation") {
