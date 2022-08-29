@@ -162,7 +162,7 @@ object Backpressuring extends ZIOSpecDefault {
          *
          * Find the appropriate place to add the `disconnect` operator to ensure
          * that even if an effect refuses to be interrupted in a timely fashion,
-         * the fiber can be detatched and will not delay interruption.
+         * the fiber can be detached and will not delay interruption.
          */
         test("disconnect") {
           Live.live(for {
